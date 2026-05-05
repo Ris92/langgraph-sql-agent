@@ -1,0 +1,257 @@
+Date: 2026-04-17
+
+Session Summary
+===============
+
+1. Explored the folder
+Found three items in C:\Users\riswa\Python\Notebooks:
+- Chinook.db — SQLite music store database
+- anaconda_projects/ — Anaconda project folder
+- sql_agent.ipynb — Jupyter notebook
+
+2. Read the notebook
+Went through the full contents of sql_agent.ipynb — a LangGraph-based SQL agent using GPT-4o to answer natural language questions about the Chinook database.
+
+3. Security alert
+Spotted an exposed OpenAI API key in a markdown cell — flagged it for you to revoke.
+
+4. Theory explanation
+Explained the theory behind LangGraph SQL agents — covering the ReAct pattern, stateful graphs, tool use, conditional routing, and self-healing loops.
+
+5. Tried to open the notebook
+Discovered jupyter wasn't in Claude Code's bash PATH (exit code 49 / Microsoft Store Python stub issue). Suggested using Anaconda Navigator or the full path instead.
+
+6. Edited the notebook
+Successfully added a markdown cell with "Claude added this cell" as the first cell using the NotebookEdit tool.
+
+7. Explained bash shell
+Covered what a shell is, how bash works, and why Claude Code's shell is separate from your conda environment.
+
+---
+
+Date: 2026-04-23
+
+Project Plan — LangGraph SQL Agent Improvement
+===============================================
+
+Agreed multi-day plan for sql_agent.ipynb, in this order:
+
+1. ✅ Understand the code deeper (walk through all cells in detail)
+2. ✅ Fix the broken cell (ImportError: from langchain import hub)
+3. Improve the agent (prompts, error handling, query validation)
+   - ✅ Fix 1: model_get_schema missing Customer table
+   - ✅ Fix 2: query_gen hallucinating — calling SubmitFinalAnswer with SQL
+   - ✅ Fix 3: query_gen skipping SQL, answering from schema sample (prompt)
+   - ✅ Fix 4: Programmatic guard — enforce SQL execution in code
+   - [ ] Max retry limit — prevent infinite loops on repeated errors
+   - [ ] Ambiguous question handling — clarify terms like "total" before querying
+4. Run & test it end-to-end in the genai conda environment
+   - [ ] LangSmith evaluation setup (Cell 16 currently inactive)
+5. Push to a GitHub repo
+
+On hold: Migrate from GPT-4o to Claude (Anthropic SDK) — to be done later
+
+---
+
+Date: 2026-04-23
+
+Direction 4 Complete — Notebook Component Recap
+================================================
+
+| Cell | Component Type                          |
+|------|-----------------------------------------|
+| 1    | API Key / Security                      |
+| 3    | Data Connector                          |
+| 4    | Data Connector (LangChain wrapper)      |
+| 5    | Error Handler                           |
+| 6    | Tools (auto-generated)                  |
+| 7    | Tool (custom)                           |
+| 8    | Prompt Template + LLM + Tool binding    |
+| 9    | State, Nodes, Edges, Router, Structured Output |
+| 10   | Visualization                           |
+| 11-12| Agent Invocation                        |
+| 13   | Evaluation Helper                       |
+| 14   | Evaluator (LLM-as-judge)                |
+| 16   | Evaluation Runner                       |
+
+---
+
+Date: 2026-04-24
+
+Step 2 Complete — Fixed Broken Cell 15
+=======================================
+
+1. Compared Cell 14 and Cell 15 — both had the same purpose: pull the
+   langchain-ai/rag-answer-vs-reference prompt and define answer_evaluator.
+
+2. Cell 14 uses langsmith.client.Client.pull_prompt() — stable, current API.
+   Cell 15 used from langchain import hub — broken in current LangChain versions.
+
+3. Action taken: Converted Cell 15 to a markdown cell (code preserved as
+   reference, no longer executes). Added note: "Claude made this change".
+
+4. No changes needed to subsequent cells — Cell 16 depends on answer_evaluator
+   which is correctly defined in Cell 14.
+
+---
+
+Date: 2026-04-28
+
+Step 3 — Agent Improvements (completed two fixes)
+==================================================
+
+Fix 1: model_get_schema missing Customer table (Cell 9)
+--------------------------------------------------------
+Root cause: model_get_schema had no system prompt, so the LLM guessed
+tables from the question alone and missed Customer — the bridge table
+linking Employee to Invoice via Customer.SupportRepId.
+
+Fix: Added a system prompt (model_get_schema_system) with an explicit
+schema hint: "Customer.SupportRepId links to Employee.EmployeeId. Always
+include the Customer table when the question involves sales agents,
+employees, or sales performance."
+
+Also updated the lambda to pass {"messages": state["messages"]} as a dict
+(required by the prompt template chain).
+Old code commented out with "claude made the change" marker.
+
+Fix 2: query_gen hallucinating answers without executing SQL (Cell 9)
+----------------------------------------------------------------------
+Root cause: query_gen was writing SQL in the message content AND calling
+SubmitFinalAnswer in the same step — skipping correct_query and
+execute_query entirely. It hallucinated "Jane Peacock" without running
+the query.
+
+Fix: Added an IMPORTANT instruction at the end of query_gen_system:
+"Always output the SQL query as plain text WITHOUT calling any tool.
+Only call SubmitFinalAnswer after you have seen the actual query results.
+Never call SubmitFinalAnswer in the same step as writing a SQL query."
+Old query_gen_system commented out with "claude made the change" marker.
+
+Result verified: agent now correctly answers "Steve Johnson" for the
+question "Which sales agent made the most in sales in 2009?" — confirmed
+against ground truth SQL query run directly on Chinook.db.
+
+Next step: Step 3 (continued) — max retry limit and ambiguous question handling
+
+---
+
+Date: 2026-04-24 (continued)
+
+Agent Improvement — Fixed Customer.SupportRepId schema gap
+==========================================================
+
+Root cause: model_get_schema node had no system prompt, so the LLM picked
+tables by guessing from the question alone. For "which sales agent made the
+most sales?" it chose Employee, Invoice, InvoiceLine — missing Customer,
+which holds the SupportRepId link to Employee.
+
+Verified fix by querying Chinook.db directly:
+- Customer.SupportRepId exists (column 12)
+- JOIN Customer c ON c.SupportRepId = e.EmployeeId works correctly
+
+Changes made in Cell 9 (a9b3df88):
+- Added model_get_schema_system prompt with schema hint about
+  Customer.SupportRepId -> Employee.EmployeeId relationship
+- Wrapped LLM in ChatPromptTemplate (model_get_schema_prompt)
+- Updated lambda to pass {"messages": state["messages"]} dict
+  (required by prompt template, old bare list invocation commented out)
+- All old lines commented out with "claude made the change" marker
+
+Also in this session:
+- Cell 15 converted to markdown (old broken hub.pull code preserved as
+  reference, note added: "Claude made this change")
+
+---
+
+Date: 2026-05-01
+
+Graph Node Reference
+====================
+
+| Node             | What it does                                          |
+|------------------|-------------------------------------------------------|
+| first_tool_call  | Kicks off the pipeline by listing tables              |
+| list_tables_tool | Executes the sql_db_list_tables tool call             |
+| model_get_schema | LLM picks which tables to fetch schemas for           |
+| get_schema_tool  | Executes the sql_db_schema tool call                  |
+| query_gen        | LLM writes SQL, then on 2nd pass submits final answer |
+| correct_query    | LLM validates the SQL query                           |
+| execute_query    | Runs db_query_tool with the validated SQL             |
+
+---
+
+Date: 2026-05-01
+
+Step 3 (continued) — Fix 3: query_gen answering from schema sample data (Cell 9)
+==================================================================================
+
+Root cause: query_gen skipped SQL execution entirely for questions where the
+answer happened to appear in the 3-row schema sample data. For "What is the
+name of artist with ID as 3?", the schema sample showed ArtistId=3 is
+Aerosmith, so the LLM jumped straight to SubmitFinalAnswer without running a
+query. This would fail silently for any ID not in the sample rows.
+
+Fix: Added a second IMPORTANT instruction to query_gen_system:
+"You MUST always write and execute a SQL query to answer the question.
+Never answer directly from schema sample data alone, even if the sample rows
+appear to contain the answer. The sample data is not guaranteed to be complete."
+Previous query_gen_system commented out with "claude made the change" marker.
+
+Changes made in Cell 9 (a9b3df88):
+- Previous query_gen_system version commented out
+- New query_gen_system includes both existing IMPORTANT instruction and new one
+
+Fix 4: Programmatic guard in query_gen_node (Cell 9)
+-----------------------------------------------------
+Root cause: prompt instructions alone were insufficient — GPT-4o still called
+SubmitFinalAnswer without executing a query when the answer was visible in the
+schema sample rows (e.g. ArtistId 1, 2, or 3).
+
+Fix: Added a code-level guard inside query_gen_node. When SubmitFinalAnswer is
+called, the guard checks state["messages"] for any prior ToolMessage from
+db_query_tool. If none exists, it returns an error message forcing the LLM to
+write a SQL query first. This enforces the rule in code rather than relying on
+the LLM to follow instructions.
+Old query_gen_node commented out with "claude made the change" marker.
+
+Result verified: Artist ID 3 now goes through the full pipeline — query_gen
+appears twice, with correct_query and execute_query in between.
+
+Summary of all query_gen fixes:
+
+| Fix   | Type       | Problem solved                                              |
+|-------|------------|-------------------------------------------------------------|
+| Fix 2 | Prompt     | LLM calling SubmitFinalAnswer in same step as writing SQL   |
+| Fix 3 | Prompt     | LLM skipping SQL entirely, answering from schema sample     |
+| Fix 4 | Code guard | Prompt wasn't enough — enforced in code by checking state   |
+
+---
+
+Date: 2026-05-04
+
+Step 3 (continued) — Fix 5: Max retry limit in query_gen_node (Cell 9)
+========================================================================
+
+Root cause: if the agent keeps producing bad SQL that execute_query rejects,
+the loop between query_gen → correct_query → execute_query → query_gen has
+no exit condition and can run forever.
+
+Fix: Added a retry counter to query_gen_node using the LangGraph state dict.
+- Added MAX_QUERY_RETRIES = 5 constant (Cell 9)
+- At the start of query_gen_node, reads state.get("query_retry_count", 0)
+- If retry_count >= MAX_QUERY_RETRIES, skips the LLM call entirely and
+  returns a SubmitFinalAnswer with a clear failure message
+- If an error ToolMessage is generated (meaning a retry will happen),
+  increments query_retry_count by 1 in the return dict
+- On a clean pass (no errors), leaves the count unchanged
+
+Changes made in Cell 9 (a9b3df88):
+- Added MAX_QUERY_RETRIES = 5  # claude made the change
+- Previous query_gen_node (Fix 4) commented out with "claude made the change" marker
+- New query_gen_node (Fix 5) added below with retry logic
+
+Revert path: Fix 4 query_gen_node is still in the cell, commented out.
+To revert, comment out Fix 5 and uncomment Fix 4.
+
+Next step: Fix 6 — ambiguous question handling
