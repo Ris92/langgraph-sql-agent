@@ -255,3 +255,28 @@ Revert path: Fix 4 query_gen_node is still in the cell, commented out.
 To revert, comment out Fix 5 and uncomment Fix 4.
 
 Next step: Fix 6 — ambiguous question handling
+
+---
+
+Date: 2026-05-05
+
+GitHub Setup — Published repo to GitHub
+========================================
+
+Created public GitHub repository: https://github.com/Ris92/langgraph-sql-agent
+
+Files pushed:
+- sql_agent.ipynb — main notebook
+- README.md — project overview, tech stack, improvements table, setup instructions
+- session_summary.txt — running session log
+- CLAUDE.md — project config
+- .gitignore — excludes Chinook.db and anaconda_projects/
+
+Steps completed:
+- Security scan passed — no API keys or sensitive data found
+- Re-ran Cell 9 and Cell 11 to clear stale test output before pushing
+- Configured git identity (user.email, user.name)
+- Authorized Git Credential Manager via browser for secure token storage
+- Pushed successfully via: git init → git add → git commit → git remote add → git push
+
+Next step: Fix 6 — ambiguous question handling
