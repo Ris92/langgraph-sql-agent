@@ -258,6 +258,36 @@ Next step: Fix 6 — ambiguous question handling
 
 ---
 
+Date: 2026-05-08
+
+LangSmith Evaluation Setup
+===========================
+
+Created LangSmith account and set up evaluation pipeline.
+
+Changes made to notebook:
+- Cell 1: Added _set_env("LANGSMITH_API_KEY"), LANGCHAIN_TRACING_V2=true,
+  LANGCHAIN_PROJECT="sql-agent" — claude made the change
+- Cell 14: Fixed score["Score"] bug — result is a dict not an AIMessage.
+  Updated to use isinstance check: result["Score"] if dict, else
+  json.loads(result.content)["Score"] with fallback to 0 — claude made the change
+
+Dataset created in LangSmith: "SQL Agent Response" (3 original questions)
+- "Which sales agent made the most in sales in 2009?" → Steve Johnson
+- "How many invoices in year 2009?" → 83
+- "What is the name of artist with ID as 3?" → Aerosmith
+Evaluation result: all 3 scored 1 (perfect)
+
+Additional test — empty result handling:
+- Added "How many invoices in year 2008?" → 0
+- Chinook DB only has data from 2009-2013, so 2008 returns no rows
+- Agent scored 1 — agent correctly handled the empty result
+- All 4 questions in the dataset now score 1 (perfect)
+
+Next step: Fix 6 — ambiguous question handling
+
+---
+
 Date: 2026-05-05
 
 GitHub Setup — Published repo to GitHub

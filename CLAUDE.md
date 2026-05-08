@@ -22,11 +22,11 @@ questions about the Chinook SQLite database using GPT-4o.
    - ✅ Fix 2: query_gen hallucinating — calling SubmitFinalAnswer with SQL
    - ✅ Fix 3: query_gen skipping SQL, answering from schema sample (prompt)
    - ✅ Fix 4: Programmatic guard — enforce SQL execution in code
-   - [ ] Max retry limit — prevent infinite loops on repeated errors
-   - [ ] Ambiguous question handling — clarify terms like "total" before querying
+   - ✅ Fix 5: Max retry limit — prevent infinite loops on repeated errors
+   - [ ] Fix 6: Ambiguous question handling — clarify terms like "total" before querying
 4. Run & test end-to-end in genai environment
-   - [ ] LangSmith evaluation setup (Cell 16 currently inactive)
-5. Push to GitHub
+   - ✅ LangSmith evaluation setup — 4 questions, all scoring 1 (perfect)
+5. ✅ Push to GitHub — https://github.com/Ris92/langgraph-sql-agent
 
 On hold: Migrate from GPT-4o to Claude (Anthropic SDK)
 
